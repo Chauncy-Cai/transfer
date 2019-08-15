@@ -143,7 +143,7 @@ def custom_draw_geometry_with_view_tracking(mesh):
 
 
 def main():
-    mesh = o3d.read_triangle_mesh("box.ply")
+    mesh = o3d.read_triangle_mesh("pesticide_bar.ply")
     #mesh = o3d.read_triangle_mesh("example.ply")
     #o3d.draw_geometries([mesh])
     custom_draw_geometry_with_view_tracking(mesh)
