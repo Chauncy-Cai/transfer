@@ -211,15 +211,15 @@ def compare(parameter):
     ###watch mid point
     ################
 
-    bs = 3
-    blockStat(bs, match, indexlist1, indexlist2, image1, image2)
-    bs = 7
-    blockStat(bs, match, indexlist1, indexlist2, image1, image2)
-    bs = 15
-    blockStat(bs, match, indexlist1, indexlist2, image1, image2)
-    bs = 31
-    blockStat(bs, match, indexlist1, indexlist2, image1, image2)
-    bs = 63
+    #bs = 3
+    #blockStat(bs, match, indexlist1, indexlist2, image1, image2)
+    #bs = 7
+    #blockStat(bs, match, indexlist1, indexlist2, image1, image2)
+    #bs = 15
+    #blockStat(bs, match, indexlist1, indexlist2, image1, image2)
+    #bs = 31
+    #blockStat(bs, match, indexlist1, indexlist2, image1, image2)
+    bs = 127
     blockStat(bs, match, indexlist1, indexlist2, image1, image2)
     return
 
