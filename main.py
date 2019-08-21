@@ -10,15 +10,15 @@ import cv2
 
 
 #权重初始化函数
-def weight_variable(shape):
+def weight_variable(shape, name=None):
     #输出服从截尾正态分布的随机值
     initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
+    return tf.Variable(initial,name = name)
 
 #偏置初始化函数
-def bias_variable(shape):
+def bias_variable(shape, name=None):
     initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+    return tf.Variable(initial, name=name)
 
 #创建卷积op
 #x 是一个4维张量，shape为[batch,height,width,channels]
@@ -31,9 +31,29 @@ def conv2d(x, W):
 #x 是一个4维张量，shape为[batch,height,width,channels]
 #ksize表示pool窗口大小为2x2,也就是高2，宽2
 #strides，表示在height和width维度上的步长都为2
-def max_pool_2x2(x):
+def max_pool_2x2(x,name = None):
     return tf.nn.max_pool(x, ksize=[1,2,2,1],
-                          strides=[1,2,2,1], padding="SAME")
+                          strides=[1,2,2,1], padding="SAME", name = name)
+ 
+#a level of cnn
+#weight and bias initialize is not included
+#subname rule: levelnum_parameterindex
+def cnn_level(x,W,b,subname:str, maxpool=False):
+    #x is a tensor
+    h_conv = tf.nn.relu(conv2d(x, W) + b, name = "h_conv" + subname)
+    if maxpool:
+        h_pool = max_pool_2x2(h_conv, name = "h_pool" + subname)
+    return h_pool
+
+#a share level of cnn
+#weight and bias will be share by two input
+#weight and bias initialization is included
+def cnn_level_share(x1,x2,cnn_shape,levelindex,maxpool = False):
+    W = weight_variable(cnn_shape, name = "W_conv" + str(levelindex))
+    b = bias_variable([cnn_shape[3]], name = "b_conv" + str(levelindex))
+    re1 = cnn_level(x1, W, b, str(levelindex) + "_1", maxpool)
+    re2 = cnn_level(x2, W, b, str(levelindex) + "_2", maxpool)
+    return re1,re2
 
 ######################################################################
 #generate three placehold
@@ -43,6 +63,7 @@ x1 = tf.placeholder("float",shape=[None,256,256,3])
 x2 = tf.placeholder("float",shape=[None,256,256,3])
 matched = tf.placeholder("float",shape=[None])
 #LAYER ONE cnn
+'''
 W_conv1 = weight_variable([5,5,3,10])
 b_conv1 = bias_variable([10])
 
@@ -50,9 +71,13 @@ h_conv1_1 = tf.nn.relu(conv2d(x1,W_conv1)+b_conv1)
 h_pool1_1 = max_pool_2x2(h_conv1_1)
 h_conv1_2 = tf.nn.relu(conv2d(x2,W_conv1)+b_conv1)
 h_pool1_2 = max_pool_2x2(h_conv1_2)
+'''
+h_pool1_1, h_pool1_2 = cnn_level_share(x1,x2,[5,5,3,10],1,maxpool=True)
+
 #output shape here should be [batch,128,128,10]
 
 #LAYER TWO cnn
+'''
 W_conv2 = weight_variable([5,5,10,16])
 b_conv2 = weight_variable([16])
 
@@ -60,9 +85,12 @@ h_conv2_1 = tf.nn.relu(conv2d(h_pool1_1, W_conv2) + b_conv2)
 h_pool2_1 = max_pool_2x2(h_conv2_1)
 h_conv2_2 = tf.nn.relu(conv2d(h_pool1_2, W_conv2) + b_conv2)
 h_pool2_2 = max_pool_2x2(h_conv2_2)
+'''
+h_pool2_1,h_pool2_2 = cnn_level_share(h_pool1_1,h_pool1_2,[5,5,10,16],2,maxpool=True)
 #output shape here should be [batch,64,64,16]
 
 #LAYER THREE CNN
+'''
 W_conv3 = weight_variable([5,5,16,32])
 b_conv3 = weight_variable([32])
 
@@ -70,6 +98,8 @@ h_conv3_1 = tf.nn.relu(conv2d(h_pool2_1, W_conv3) + b_conv3)
 h_pool3_1 = max_pool_2x2(h_conv3_1)
 h_conv3_2 = tf.nn.relu(conv2d(h_pool2_2, W_conv3) + b_conv3)
 h_pool3_2 = max_pool_2x2(h_conv3_2)
+'''
+h_pool3_1,h_pool3_2 = cnn_level_share(h_pool2_1,h_pool2_2,[5,5,16,32],3,maxpool=True)
 #output shape here should be [batch,32,32,32]
 
 #LAYER FOUR full-connected
@@ -101,12 +131,12 @@ loss = tf.reduce_sum(tf.negative(loss_vec))
 #train_step
 train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 #correct_predict
-correct_predict = tf.greater(loss_vec,0.8)
+correct_predict = tf.greater(loss_vec,0.5)
 accuracy = tf.reduce_mean(tf.cast(correct_predict,"float"))
 
 def readImages():
-    truthbase = "E:/research\Austin-project\coding/transfer/box/true_image/"
-    faultbase = "E:/research/Austin-project/coding/transfer/box/wrong_image/"
+    truthbase = "./box/true_image/"
+    faultbase = "./box/wrong_image/"
     x1=[]
     x2=[]
     matched=[]
@@ -138,7 +168,7 @@ def cnn_train(epo):
             train_accuracy,train_loss =  sess.run([accuracy,loss],feed_dict={
                 x1:batch[0],x2:batch[1],matched:batch[2]
             })
-            print ("step %d, training accuracy %g" % (i, train_accuracy))
+            print ("step %d, training accuracy %g,loss %g" % (i, train_accuracy,train_loss))
         train_step.run(feed_dict={x1:batch[0],x2:batch[1],matched:batch[2]})
 
 def predict():
@@ -149,5 +179,5 @@ def predict():
     #print("test accuracy %g"% test_accuracy)
 
 
-cnn_train(2000)
+cnn_train(600)
 #predict()
