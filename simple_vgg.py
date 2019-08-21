@@ -16,7 +16,7 @@ def weight_variable(shape, name=None):
 
 #偏置初始化函数
 def bias_variable(shape, name=None):
-    initial = tf.constant(0.1, shape=shape)
+    initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial, name=name)
 
 #创建卷积op
@@ -39,7 +39,7 @@ def max_pool_2x2(x,name = None):
 #subname rule: levelnum_parameterindex
 def cnn_level(x,W,b,subname:str, maxpool=False):
     #x is a tensor
-    h_conv = tf.nn.relu(conv2d(x, W) + b, name = "h_conv" + subname)
+    h_conv = tf.math.tanh(conv2d(x, W) + b, name = "h_conv" + subname)
     if maxpool:
         h_pool = max_pool_2x2(h_conv, name = "h_pool" + subname)
         return h_pool
@@ -60,34 +60,34 @@ def fully_connect_share(x1,x2,inputshape,outputshape,levelindex):
     W = weight_variable([inputshape,outputshape],name = "W_fully_connect"+str(levelindex))
     b = bias_variable([outputshape],name = "b_fully_connect"+str(levelindex))
 
-    re1 = tf.nn.relu(tf.matmul(x1,W)+b)
-    re2 = tf.nn.relu(tf.matmul(x2,W)+b)
+    re1 = tf.math.tanh(tf.matmul(x1,W)+b)
+    re2 = tf.math.tanh(tf.matmul(x2,W)+b)
     return re1,re2
 
 ######################################################################
 #generate three placehold
 # x1,x2 is input image 31*31*3
 # matched is vector showing whether x1,x2 match
-x1 = tf.placeholder("float",shape=[None,256,256,3])
-x2 = tf.placeholder("float",shape=[None,256,256,3])
+x1 = tf.placeholder("float",shape=[None,128,128,3])
+x2 = tf.placeholder("float",shape=[None,128,128,3])
 matched = tf.placeholder("float",shape=[None])
 
-## this model is VGG-11
+## this model is VGG-11 simple version and apply the pesticide
 
-#LAYER ONE 2-CONV3-64 + MAXPOOL (256*256*3=>128*128*64)
+#LAYER ONE 2-CONV3-64 + MAXPOOL (128*128*3=>64*64*64)
 l11x1, l11x2 = cnn_level_share(x1, x2, [3,3,3,64], 1, maxpool=False)
 l12x1, l12x2 = cnn_level_share(l11x1, l11x2, [3,3,64,64], 2, maxpool=True)
 
-#LAYER TWO 2-CONV3-128 + MAXPOOL (128*128*64=>64*64*128)
+#LAYER TWO 2-CONV3-128 + MAXPOOL (64*64*64=>32*32*128)
 l21x1, l21x2 = cnn_level_share(l12x1, l12x2, [3,3,64,128], 3, maxpool=False)
 l22x1, l22x2 = cnn_level_share(l21x1, l21x2, [3,3,128,128], 4, maxpool=True)
 
-#LAYER THREE 2-CONV3-256 + MAXPOOL (64*64*128=>32*32*256)
+#LAYER THREE 2-CONV3-256 + MAXPOOL (32*32*128=>16*16*256)
 l31x1, l31x2 = cnn_level_share(l22x1, l22x2, [3,3,128,256], 5, maxpool=False)
 l32x1, l32x2 = cnn_level_share(l31x1, l31x2, [3,3,256,256], 6, maxpool=True)
  
-#LAYER FOUR 2-CONV3-512 + MAXPOOL (32*32*256=>8*8*512)
-l41x1, l41x2 = cnn_level_share(l32x1, l32x2, [3,3,256,512], 7, maxpool=True)
+#LAYER FOUR 2-CONV3-512 + MAXPOOL (16*16*256=>8*8*512)
+l41x1, l41x2 = cnn_level_share(l32x1, l32x2, [3,3,256,512], 7, maxpool=False)
 l42x1, l42x2 = cnn_level_share(l41x1, l41x2, [3,3,512,512], 8, maxpool=True)
 
 #LAYER SIX full-connected
@@ -102,15 +102,17 @@ l64x1, l64x2 = fully_connect_share(l63x1,l63x2,256,32,14)
 
 #FINAL
 #normalize
-y1 = tf.nn.l2_normalize(l64x1,dim=1)##?all?
+y1 = tf.nn.l2_normalize(l64x1,dim=1)##?all? [?,30]
 y2 = tf.nn.l2_normalize(l64x2,dim=1)##?all? [?,30]
-#loss
-judge = tf.reduce_sum(tf.multiply(y1,y2),1)
+#los
+judge = tf.reduce_sum(tf.multiply(y1,y2), axis=1)
 loss_vec = tf.multiply(judge,matched)
-loss = tf.reduce_sum(tf.negative(loss_vec))
+loss = tf.reduce_mean(tf.negative(loss_vec)) + 1
+#loss = tf.reduce_mean(loss_vec)
 
 #train_step
-train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
+learning_rate = 1e-4
+train_step = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 #correct_predict
 correct_predict = tf.greater(loss_vec,0.5)
 accuracy = tf.reduce_mean(tf.cast(correct_predict,"float"))
@@ -134,18 +136,19 @@ epsilon = 1e-7
 precision =TP / (TP + FP + epsilon) ##TP/(TP+FP)
 recall =TP / (TP + FN + epsilon)
 
-F1 =2 * (precision * recall) / (precision + recall)
+F1 = 2 * (precision * recall) / (precision + recall)
 
 
 
 def readImages():
-    truthbase = "./box/true_image/"
-    faultbase = "./box/wrong_image/"
+    truthbase = "./pesticide/true_image/"
+    faultbase = "./pesticide/wrong_image/"
+    print("truthbase:",truthbase)
     x1=[]
     x2=[]
     matched=[]
     print("data loading...")
-    for i in range(308):
+    for i in range(400):
         index = i
         x1.append(cv2.imread(truthbase + str(index) + "_1.jpg"))
         x2.append(cv2.imread(truthbase + str(index) + "_2.jpg"))
@@ -156,13 +159,14 @@ def readImages():
     print("x1:",np.array(x1).shape," x2:",np.array(x2).shape," matched:",len(matched))
     return [x1,x2,matched]
 
-def cnn_train(epo):
-    sess = tf.InteractiveSession()
+def cnn_train(times,batchsize):
+    #sess = tf.InteractiveSession()
+    sess = tf.InteractiveSession(config = tf.ConfigProto(device_count={'gpu':0}))
     sess.run(tf.initialize_all_variables())
     data = readImages()
-    for i in range(epo):
-        start = (i % 13) * 25
-        end = start + 25
+    for i in range(times):
+        start = (i%15)*batchsize
+        end = start+batchsize
         batch = [data[0][start:end],
                  data[1][start:end],
                  data[2][start:end]]##format [x1,x2,match?]
@@ -170,11 +174,17 @@ def cnn_train(epo):
             print("standard batch:", np.array(batch[0]).shape)
             print("batch situation:",len(batch[0]), len(batch[1]), len(batch[2]))
         if i%10 ==0:
-            train_accuracy,train_loss,train_precision,train_recall,train_F1,ZTP,ZTN =  sess.run(
-                    [accuracy,loss,precision,recall,F1,TP,TN],feed_dict={x1:data[0],x2:data[1],matched:data[2]
+            train_accuracy,train_loss,train_precision,train_recall,train_F1,ZTP,ZTN,CPD,l64x10,l64x20,Tjudge =  sess.run(
+                    [accuracy,loss,precision,recall,F1,TP,TN,loss_vec,l64x1,l64x2,judge],feed_dict={x1:data[0],x2:data[1],matched:data[2]
             })
-            print ("step %d, training accuracy %g, loss %g, precision %g, recall %g, F1 %g,TP %g,TN %g"
+            print ("step %d, training accuracy %g, loss(0~2) %g, precision %g, recall %g, F1 %g,TP %g,TN %g"
                     % (i, train_accuracy, train_loss, train_precision, train_recall, train_F1,ZTP,ZTN))
+            print("CPD",CPD[0:30])
+
+            # print("judge",Tjudge.shape)
+            # print(Tjudge)
+            # print("l64x1",l64x10[0:3])
+            # print("l64x2",l64x20[0:3])
         train_step.run(feed_dict={x1:batch[0],x2:batch[1],matched:batch[2]})
 
 def predict():
@@ -184,6 +194,8 @@ def predict():
     #        x1:batch[0],x2:batch[1],matched:batch[2]})
     #print("test accuracy %g"% test_accuracy)
 
-
-cnn_train(600)
+batchsize = 25*2
+times = 600
+print("###########################learning rate",learning_rate)
+cnn_train(times, batchsize)
 #predict()
