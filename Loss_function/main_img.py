@@ -78,32 +78,49 @@ A = np.random.random((3,3))
 U,sig,V =  np.linalg.svd(A)
 R = U.dot(V)
 ####
-E0 = pose_tar[:3, :3].copy()
-E0[:3,:3] = R
+pos = 0
+neg = 0
 
-epo = 0
-while(1):
-    print("------"+str(epo)+"--------")
-    epo += 1
-    E = []
-    for i in range(len(matchlist1)):
-        E.append(E0.copy())
-    # print("***",matchlist1,pointlist1)
-    print("interation", str(INDEX / 1000), "--loss:",
-    opt.loss(np.zeros((1, 3)), np.zeros((1, 3)), Intrinsic,E, matchlist1, pointlist1)[0][0])
-    E = opt.image_t(E, matchlist1, pointlist1, Intrinsic)
-    E = opt.image_R(E, matchlist1, pointlist1,Intrinsic)
 
-    E0 = E[0].copy()
+E0 = pose_tar[:3, :].copy()
 
-    ################
-    exist_pose = E[0][:3,:3]
-    delta_angle_gt = np.arccos(np.clip((np.sum(np.diag(exist_pose.dot(
-        np.linalg.inv(pose_tar[:3,:3])
-    ))) - 1.0) / 2, -1, 1)) / np.pi * 180.0
-    distance_gt = np.linalg.norm(pose_tar[:3,3]-E[0][:3,3])
-    print("angel and distance 2 ground truth: angle:",delta_angle_gt,"distance",distance_gt)
+for w in range(20):
+    print("times:",w)
+    np.random.seed(0)
+    E0[:,3] = E0[:,3] + np.random.random(3)*10
+    epo = 0
+    while(1):
+        #print("------"+str(epo)+"--------")
+        epo += 1
+        E = []
+        for i in range(len(matchlist1)):
+            E.append(E0.copy())
+        # print("***",matchlist1,pointlist1)
 
+        E,R = opt.image_R(E, matchlist1, pointlist1, Intrinsic,1)
+        E = opt.image_t(E, matchlist1, pointlist1, Intrinsic)
+
+        E0 = E[0].copy()
+
+        ################
+        exist_pose = E[0][:3,:3]
+        delta_angle_gt = np.arccos(np.clip((np.sum(np.diag(exist_pose.dot(
+            np.linalg.inv(pose_tar[:3,:3])
+        ))) - 1.0) / 2, -1, 1)) / np.pi * 180.0
+        distance_gt = np.linalg.norm(pose_tar[:3,3]-E[0][:3,3])
+        end_target = np.arccos(np.clip((np.sum(np.diag(R)) - 1.0) / 2, -1, 1)) / np.pi * 180.0
+        loss = opt.loss(np.zeros((1, 3)), np.zeros((1, 3)), Intrinsic, E, matchlist1, pointlist1)[0][0]
+        if epo%10==0:
+            print("angle:", delta_angle_gt, "distance", distance_gt,
+                  "end_target:",end_target)
+            print("--loss:",loss)
+        if (epo>300) | (end_target<0.01) | (loss<1):
+            if delta_angle_gt<5:
+                pos += 1
+            else:
+                neg +=1
+            break
+print("possiblity",pos/(pos+neg))
     ###############
     #vis.update_geometry()
 

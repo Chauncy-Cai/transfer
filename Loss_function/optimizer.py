@@ -150,7 +150,7 @@ class Optimizer(object):
         #U,sig,V = np.linalg.svd(np.eye(3)+cross_op(r))
         #R = U.dot(V)
         delta_angle = np.arccos(np.clip((np.sum(np.diag(R)) - 1.0) / 2, -1, 1)) / np.pi * 180.0
-        print("rotate:",delta_angle)
+        #print("rotate:",delta_angle)
 
         for i in range(len(E)):
             Re = E[i][:3,:3]
@@ -179,7 +179,7 @@ class Optimizer(object):
             H += h.T.dot(h)
         t = -np.linalg.solve(H, g)
         move_distance = np.linalg.norm(t-E[0][:,3])**2
-        print("image move distance ",move_distance)
+        #print("image move distance ",move_distance)
         for i in range(n2):
             E[i][:, 3] = t
         return E
