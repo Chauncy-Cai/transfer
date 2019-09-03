@@ -36,7 +36,6 @@ pose = np.eye(4)
 
 pointlist1=np.array(pcdhelper.points)
 matchlist1 = np.array(pixel)
-E0 = pose_verse[:3,:]
 
 def custom_draw_geometry_with_view_tracking(meshes):
     def track_view(vis):

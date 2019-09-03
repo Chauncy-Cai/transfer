@@ -7,6 +7,7 @@
 import cv2
 import open3d as o3d
 import numpy as np
+from sklearn.neighbors import NearestNeighbors
 
 def decompose(index,imageshape):
     l = imageshape[1] #480
@@ -72,7 +73,6 @@ def readColor(path,depthshape):
     #print("imgshape",img.shape)
     img = cv2.resize(img,reshapesize)
     return img
-
 
 def readCameraMatrix(path):
     f = open(path)
@@ -146,4 +146,26 @@ def getColor(index):
     color = readColor(colorpath,depthshape)
     return color
 
+def point_matching(pointlist1, pointlist2, color1=None, color2=None, hascolor=0):
+    pointlist1 = np.array(pointlist1)
+    pointlist2 = np.array(pointlist2)
+    if hascolor == 0:
+        nbrs = NearestNeighbors(n_neighbors=1, n_jobs=10).fit(pointlist2)
+        _, indices = nbrs.kneighbors(pointlist1)
+    else:
+        point_and_color1 = np.append(pointlist1, color1, axis=1)
+        point_and_color2 = np.append(pointlist2, color2, axis=1)
+        nbrs = NearestNeighbors(n_neighbors=1, n_jobs=10).fit(point_and_color2)
+        _, indices = nbrs.kneighbors(point_and_color1)
+    p1 = np.array([pointlist1[i] for i in range(len(pointlist1))])
+    p2 = np.array([pointlist2[indices[i][0]] for i in range(len(pointlist1))])
+    indices = np.array(indices).T[0]
+    return p1, p2, indices
+
+def pack_Rt(R,t):
+    T = np.eye(4)
+    T[:3,:3] = R
+    T[:3, 3] = t
+    return T
 #PointcloudWithColorShow()
+

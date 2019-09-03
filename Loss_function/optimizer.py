@@ -52,7 +52,7 @@ class Optimizer(object):
         Q_ = np.random.random((n, 3))
         return P,Q,E,c,Q_
 
-    def pointcloud_R(self,P, Q, E, c, Q_):
+    def pointcloud_R(self,P, Q, intrinsic, E, c, Q_):
         '''
         minmize sum ||P-R(Q)||2 + ||I x E R(Q')||2
         input: all should be numpy
@@ -77,8 +77,9 @@ class Optimizer(object):
             H +=TEMPQ
 
         for i in range(n2):
-            Re = E[i][:3, :3]
-            te = np.array([E[i][:3, 3]]).T
+            E0 = intrinsic.dot(E[i])
+            Re = E0[:3, :3]
+            te = np.array([E0[:3, 3]]).T
             qi_ = np.array([Q_[i]]).T
             subg = cross_op(c[i]).dot(Re.dot(qi_) + te)
 
@@ -94,7 +95,7 @@ class Optimizer(object):
         R = Vec2Rot(r)
         return R
 
-    def pointcloud_t(self,P, Q, E, c, Q_):
+    def pointcloud_t(self,P, Q, intrinsic, E, c, Q_):
         '''
         minmize sum ||P-T(Q)||2 + ||I x E T(Q')||2
         minmize sum ||P-Q-t||2+||cxRe(q+t)||2
@@ -110,8 +111,9 @@ class Optimizer(object):
             H += np.eye(3)
 
         for i in range(n2):
-            Re = E[i][:3, :3]
-            te = np.array([E[i][:3, 3]]).T
+            E0 = intrinsic.dot(E[i])
+            Re = E0[:3, :3]
+            te = np.array([E0[:3, 3]]).T
             qi_ = np.array([Q_[i]]).T
             subg1 = cross_op(c[i]).dot(Re).dot(qi_)
             subg2 = cross_op(c[i]).dot(te)
