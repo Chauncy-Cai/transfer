@@ -25,7 +25,8 @@ def Vec2Rot(r):
 
 
 class Optimizer(object):
-    def __init__(self):
+    def __init__(self, alpha = 1e-4):
+        self.alpha = alpha
         '''
         object funtion:
         minmize sum ||P - T(Q)|| + ||C(I) x T(Q)|| :
@@ -87,9 +88,9 @@ class Optimizer(object):
             #subg2 = np.cross(c[i], te)
             #print(subg,subg1+subg2)
 
-            h = -cross_op(c[i]).dot(Re).dot(cross_op(Q_[i]))
-            H += h.T.dot(h)
-            g += (subg).T.dot(h)[0]
+            h = (-cross_op(c[i]).dot(Re).dot(cross_op(Q_[i])))
+            H += self.alpha * h.T.dot(h)
+            g += self.alpha * (subg).T.dot(h)[0]
 
         r = -np.linalg.solve(H, g)
         R = Vec2Rot(r)
@@ -119,8 +120,8 @@ class Optimizer(object):
             subg2 = cross_op(c[i]).dot(te)
             subg = (subg1+subg2).T
             h = cross_op(c[i]).dot(Re)
-            g += subg.dot(h)[0]
-            H += h.T.dot(h)
+            g += self.alpha * subg.dot(h)[0]
+            H += self.alpha * h.T.dot(h)
         t = -np.linalg.solve(H, g)
         return t
 
@@ -144,8 +145,8 @@ class Optimizer(object):
             qi_ = np.array([Q_[i]]).T
             subg = cross_op(c[i]).dot(Re.dot(qi_) + te)
             h = -cross_op(c[i]).dot(Re).dot(cross_op(Q_[i]))
-            H += h.T.dot(h)
-            g += (subg).T.dot(h)[0]
+            H += self.alpha * h.T.dot(h)
+            g += self.alpha * (subg).T.dot(h)[0]
 
         r = -np.linalg.solve(H, g)
         R = Vec2Rot(r)
@@ -177,8 +178,8 @@ class Optimizer(object):
             Re = E0[:3,:3]
             h = cross_op(c[i]).dot(Intrinsic)
             subg = cross_op(c[i]).dot(Re).dot(Q_[i])
-            g += subg.T.dot(h)
-            H += h.T.dot(h)
+            g += self.alpha * subg.T.dot(h)
+            H += self.alpha * h.T.dot(h)
         t = -np.linalg.solve(H, g)
         move_distance = np.linalg.norm(t-E[0][:,3])**2
         #print("image move distance ",move_distance)
@@ -198,7 +199,7 @@ class Optimizer(object):
             te = np.array([E0[:3, 3]]).T
             l = ci.dot(Re.dot(qi_) + te)
             #print(l.shape)
-            loss_camera += l.T.dot(l)
+            loss_camera += self.alpha * l.T.dot(l)
         loss = loss_pointcloud + loss_camera
         loss = loss/1e10
         #print("loss", loss_pointcloud,loss_camera)

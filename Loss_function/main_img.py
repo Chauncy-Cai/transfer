@@ -7,6 +7,7 @@
 from sklearn.neighbors import NearestNeighbors
 from optimizer import *
 from support import *
+import random
 
 def correpondence(pcd1, pcd2, pcdhelper, imageshape):
     points1 = np.array(pcd1.points)

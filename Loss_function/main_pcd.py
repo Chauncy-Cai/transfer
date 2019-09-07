@@ -71,7 +71,7 @@ Image = getColor(50)
 pose = readCameraMatrix("./pose/" + str(50) + ".txt")
 pcd2.transform(pose)  ##################3
 matchlist1, pointlist1, matchlist2, pointlist2 = correpondence(pcd1, pcd2, pcdhelper, imageshape=(480, 640))
-opt = Optimizer()
+opt = Optimizer(1e-4)
 pose_tar = np.linalg.inv(pose)
 print("pose verse,target", np.linalg.inv(pose))
 i = 0
@@ -81,39 +81,42 @@ for i in range(len(matchlist2)):
     E.append(E0.copy())
 E = np.array(E)
 
-for i in range(400000):
-    import time
+for i in range(200):
+    #import time
     #matchlist2 pointlist2
-    start = time.clock()
+    #start = time.clock()
     P = np.array(pcd1.points)
     Q = np.array(pcd2.points)
     ##########sample
-    #P = np.array(random.sample(list(P), 3000))
-    #Q = np.array(random.sample(list(Q), 3000))
+    #P = np.array(random.sample(list(P), 30000))
+    #Q = np.array(random.sample(list(Q), 30000))
     ##########sample
     P, Q, indice = point_matching(P, Q)
     NOTC = np.zeros((1, 3))
     NOTQ = np.zeros((1, 3))
-    loss = opt.loss(P, Q, intrinsic, E, matchlist2, pointlist2)
+    loss = opt.loss(P, Q, Intrinsic, E, matchlist2, pointlist2)
 
-    R = opt.pointcloud_R(P, Q, intrinsic,E, matchlist2, pointlist2)
+    R = opt.pointcloud_R(P, Q, Intrinsic, E, matchlist2, pointlist2)
     Q = (R.dot(Q.T)).T
+    pointlist2 = (R.dot(pointlist2.T)).T
     T = pack_Rt(R, np.zeros(3))
     pcd2.transform(T)
-    t = opt.pointcloud_t(P, Q, intrinsic,E, matchlist2, pointlist2)
+    t = opt.pointcloud_t(P, Q, Intrinsic, E, matchlist2, pointlist2)
+    pointlist2 = pointlist2+t
     T = pack_Rt(np.eye(3), t)
     pcd2.transform(T)
-    end = time.clock()
+    #end = time.clock()
     pose = pose.dot(pack_Rt(R, t))
 
     t_dist = np.linalg.norm(t)
     R_angle= np.arccos(np.clip((np.sum(np.diag(R)) - 1.0) / 2, -1, 1)) / np.pi * 180.0
     gt_angle = np.arccos(np.clip((np.sum(np.diag(pose[:3,:3])) - 1.0) / 2, -1, 1)) / np.pi * 180.0
+    print("-----------------------")
     print("loss:", loss)
     print("R", R_angle)
     print("t", t_dist)
     print("gt_angle",gt_angle)
-    print("time cost =", end - start)
+    #print("time cost =", end - start)
     # time.sleep(60)
-    if i%10 ==9:
-        o3d.draw_geometries([pcd1, pcd2])
+    #if i%10 ==9:
+    #    o3d.draw_geometries([pcd1, pcd2])

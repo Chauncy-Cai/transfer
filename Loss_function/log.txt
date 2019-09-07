@@ -1,0 +1,4 @@
+read pointcloud 1
+read pointcloud 2
+read pointcloud helper
+matching ...
